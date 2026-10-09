@@ -376,8 +376,13 @@ export class WebsocketProvider extends Observable<string> {
 
     this._awarenessUpdateHandler = (
       { added, updated, removed }: AwarenessUpdate,
-      _origin: unknown
+      origin: unknown
     ) => {
+      // Updates received from the server have already been relayed to every
+      // connection; sending them back would echo them to the whole room.
+      if (origin === this) {
+        return;
+      }
       const changedClients = added.concat(updated).concat(removed);
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, messageAwareness);

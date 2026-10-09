@@ -1,6 +1,6 @@
 import WebSocket from "ws";
 import * as Y from "yjs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import YProvider from "../provider/index";
 
@@ -302,6 +302,47 @@ describe("Integration — awareness", () => {
 
     // B should no longer see A's awareness
     expect(providerB.awareness.getStates().get(docA.clientID)).toBeUndefined();
+  });
+
+  it("does not send other providers' awareness back to the server", async () => {
+    const room = `awareness-echo-${Date.now()}`;
+
+    const docA = new Y.Doc();
+    const providerA = createProvider(room, { doc: docA });
+    await waitForSync(providerA);
+
+    const docB = new Y.Doc();
+    const providerB = createProvider(room, { doc: docB });
+    await waitForSync(providerB);
+
+    await new Promise((r) => setTimeout(r, 300));
+
+    // Count the awareness messages (type 1) B sends from now on
+    const send = vi.spyOn(providerB.ws!, "send");
+    const awarenessSentByB = () =>
+      send.mock.calls.filter(([data]) => (data as Uint8Array)[0] === 1).length;
+
+    // A's change reaches B through the server, which relays it to everyone
+    providerA.awareness.setLocalState({ user: { name: "Alice" } });
+    await new Promise<void>((resolve) => {
+      const check = () => {
+        if (providerB.awareness.getStates().get(docA.clientID)) {
+          resolve();
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
+    await new Promise((r) => setTimeout(r, 300));
+
+    // B must not echo it
+    expect(awarenessSentByB()).toBe(0);
+
+    // B's own changes are still sent
+    providerB.awareness.setLocalState({ user: { name: "Bob" } });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(awarenessSentByB()).toBe(1);
   });
 });
 

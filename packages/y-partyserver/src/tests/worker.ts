@@ -16,6 +16,7 @@ export type Env = {
   YOnLoadReturnsDoc: DurableObjectNamespace<YOnLoadReturnsDoc>;
   YCallbackOptions: DurableObjectNamespace<YCallbackOptions>;
   YHibernateTracker: DurableObjectNamespace<YHibernateTracker>;
+  YNoAutoSave: DurableObjectNamespace<YNoAutoSave>;
 };
 
 // ---------------------------------------------------------------------------
@@ -162,6 +163,17 @@ export class YCallbackOptions extends YServer {
   onRequest(): Response {
     return Response.json({ saveCount: this.saveCount });
   }
+}
+
+// ---------------------------------------------------------------------------
+// 6b. YServer with autoSave off — onSave is never called on a timer
+// ---------------------------------------------------------------------------
+export class YNoAutoSave extends YCallbackOptions {
+  static callbackOptions: CallbackOptions = {
+    debounceWait: 50,
+    debounceMaxWait: 100,
+    autoSave: false
+  };
 }
 
 // ---------------------------------------------------------------------------

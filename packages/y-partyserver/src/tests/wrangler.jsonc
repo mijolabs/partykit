@@ -33,6 +33,10 @@
       {
         "name": "YCallbackOptions",
         "class_name": "YCallbackOptions"
+      },
+      {
+        "name": "YNoAutoSave",
+        "class_name": "YNoAutoSave"
       }
     ]
   },
@@ -45,7 +49,8 @@
         "YReadOnly",
         "YCustomMessage",
         "YOnLoadReturnsDoc",
-        "YCallbackOptions"
+        "YCallbackOptions",
+        "YNoAutoSave"
       ]
     }
   ]

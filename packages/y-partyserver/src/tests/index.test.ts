@@ -587,6 +587,39 @@ describe("YServer — onSave callback options", () => {
 
     ws.close();
   });
+
+  it("never calls onSave on a timer when autoSave is false", async () => {
+    const ctx = createExecutionContext();
+    const roomName = "no-auto-save-test";
+
+    const res = await worker.fetch(
+      wsRequest(`y-no-auto-save/${roomName}`),
+      env,
+      ctx
+    );
+    const ws = acceptWs(res);
+    const doc = new Y.Doc();
+    await performSync(ws, doc);
+
+    const updatePromise = new Promise<Uint8Array>((resolve) => {
+      doc.on("update", (update: Uint8Array) => resolve(update));
+    });
+    doc.getText("shared").insert(0, "no-save");
+    sendUpdate(ws, await updatePromise);
+
+    // Well past debounceWait (50ms) and debounceMaxWait (100ms)
+    await new Promise((r) => setTimeout(r, 250));
+
+    const httpRes = await worker.fetch(
+      httpRequest(`y-no-auto-save/${roomName}`),
+      env,
+      ctx
+    );
+    const data = (await httpRes.json()) as { saveCount: number };
+    expect(data.saveCount).toBe(0);
+
+    ws.close();
+  });
 });
 
 describe("YServer — connection lifecycle", () => {

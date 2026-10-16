@@ -140,6 +140,13 @@ function send(conn: Connection, m: Uint8Array): void {
 export interface CallbackOptions {
   debounceWait?: number;
   debounceMaxWait?: number;
+  /**
+   * Set to `false` to never call `onSave` on a timer. The debounce is a
+   * pending `setTimeout`, which keeps a hibernatable Durable Object in memory
+   * (and billed) while anyone types. Without it, schedule `onSave` yourself,
+   * e.g. from a Durable Object alarm. Defaults to `true`.
+   */
+  autoSave?: boolean;
   timeout?: number;
 }
 
@@ -315,26 +322,28 @@ export function withYjs<TBase extends ServerClass>(
 
       // Debounced persistence handler
       const ctor = this.constructor as typeof YjsMixin;
-      this.document.on(
-        "update",
-        debounce(
-          (_update: Uint8Array, _origin: Connection, _doc: YDoc) => {
-            try {
-              this.onSave().catch((err) => {
+      if (ctor.callbackOptions.autoSave !== false) {
+        this.document.on(
+          "update",
+          debounce(
+            (_update: Uint8Array, _origin: Connection, _doc: YDoc) => {
+              try {
+                this.onSave().catch((err) => {
+                  console.error("failed to persist:", err);
+                });
+              } catch (err) {
                 console.error("failed to persist:", err);
-              });
-            } catch (err) {
-              console.error("failed to persist:", err);
+              }
+            },
+            ctor.callbackOptions.debounceWait || CALLBACK_DEFAULTS.debounceWait,
+            {
+              maxWait:
+                ctor.callbackOptions.debounceMaxWait ||
+                CALLBACK_DEFAULTS.debounceMaxWait
             }
-          },
-          ctor.callbackOptions.debounceWait || CALLBACK_DEFAULTS.debounceWait,
-          {
-            maxWait:
-              ctor.callbackOptions.debounceMaxWait ||
-              CALLBACK_DEFAULTS.debounceMaxWait
-          }
-        )
-      );
+          )
+        );
+      }
 
       // After hibernation wake-up, the doc is empty but existing connections
       // survive. Re-sync by sending sync step 1 to all connections — they'll
